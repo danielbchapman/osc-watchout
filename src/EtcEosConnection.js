@@ -1,34 +1,17 @@
 import EosTcpHandler, { VERSIONS } from './LightAsssistantEosModule'
+import WatchoutSocket from './WatchoutSocket'
 
-let connect = () => {
-  // let eos = new EosTcpHandler('192.168.86.149', 3032)
-	// //let eos = new EosTcpHandler(first, 3032)
-	// // '192.168.86.149'
-	// eos.version = VERSIONS.VERSION_1_0
-
-	// eos.connect().then(result=>{
-	// 	console.log(result)
-	// }).catch(err => {
-	// 	console.log('OSC CRITICAL ERROR, canceling connection------------')
-
-	// 	console.log(err)
-	// 	assert.fail(0, 1, err)	
-	// })
-
-	// setTimeout(()=>{
-	// 	console.log("Waited 5 seconds before exiting")
-	// 	console.log('OSC Connection opened? ' + eos.isConnected)
-	// 	eos.disconnect()
-	// 	process.exit()
-  // }, 5000)
+let connect = (config) => {
   
-  // //Handler (Client...)
   //Configuration
-  const eosIP = '192.168.86.149'
-  const eosPort = 3032
-  const cueLists = ['1']
-  const debug = false
+  const eosIP = config.eosIpAddress || 'localhost'
+  const eosPort = config.eosOscPort || 3032
+  const debug = config.debug || false
+  const watchoutIp = config.watchoutIpAddress || 'localhost'
+  const watchoutPort = config.watchoutPort || 3040 //production
+
   let eos = new EosTcpHandler(eosIP, eosPort)
+
   if(!debug) {
     const empty = ()=>{}
     eos.onVerbose = empty
@@ -56,38 +39,72 @@ let connect = () => {
       }
 
       //listen for custom event
-      if(address.includes('/watchout/go/')){
+      if(address.includes('/watchout/')){
         const split = address.split('/')
         const command = split[2]
         const cue = split[3]
         
-        console.log(`CUE FIRED ${cue}/${fire}`)
-        console.log(address)
+        if(debug) {
+          console.log(`CUE FIRED ${cue}/${command}`)
+          console.log(address)
+        }
       
         switch(command) {
           case 'go': {
-            console.log(`[WATCHOUT] gotoControlCue ${cue}`)
-            console.log(`[WATCHOUT] run`)
-
+            if(debug) {
+              console.log(`[WATCHOUT] gotoControlCue ${cue}`)
+              console.log(`[WATCHOUT] run`)
+            }
+            let wo = new WatchoutSocket(watchoutIp, watchoutPort, debug)
+            wo.send([
+              `gotoControlCue ${cue}`, 
+              'run'
+            ])
           }
+          
           break
           case 'run': {
+            if(debug) {
+              console.log(`[WATCHOUT] run`)
+            }
 
+            let wo = new WatchoutSocket(watchoutIp, watchoutPort, debug)
+            wo.send([
+              'run'
+            ])
+          }
+
+          case 'goto': { //goto the cue and standby to run
+            if(debug) {
+              console.log(`[WATCHOUT] gotoControlCue ${cue}`)
+              console.log(`[WATCHOUT] halt`)
+            }
+            let wo = new WatchoutSocket(watchoutIp, watchoutPort, debug)
+            wo.send([
+              `gotoControlCue ${cue}`, 
+              'halt'
+            ])
           }
           break
-          case 'halt':
-        }
-        if(command == 'go') {
-          //FIXME Watchout isn't smart about going to a control cue (we can't check it exists first, we might need to do an explicit list in this router...)
 
-        } else if (command == '')
-        } else if (command == 'halt') {
-          console.log(`[WATCHOUT] halt`)
-        } else {
-          console.log(`We don't understand ${fire}`)
-        }
+          case 'halt': {
+            if(debug) {
+              console.log(`[WATCHOUT] halt`)
+            }
+            let wo = new WatchoutSocket(watchoutIp, watchoutPort, debug)
+            wo.send([
+              'halt'
+            ])
+          }
+          break
 
-        console.log('========================================')
+          default:
+            console.log(`[OSC-WATCHOUT] Unknown command ${fire}`)
+        }
+        if(debug) {
+          console.log('========================================')
+        }
+        
       }
     } catch (err) {
       console.log('error processing message')
@@ -97,10 +114,12 @@ let connect = () => {
   })
 
   eos.connect().then(ok => {
-    console.log('OK, connected....')
-    console.log(ok)
+    if(debug) {
+      console.log('Connected to EOS')
+      console.log(ok)
+    }
   }).catch(error => {
-    console.log('error?')
+    console.log('Error connecting to EOS')
     console.log(error)
   })  
 }

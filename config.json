@@ -1,0 +1,8 @@
+{
+  "eosIpAddress": "127.0.0.1",
+  "eosOscPort": 3032,
+  "eosOscVersion": "1.0",
+  "watchoutIpAddress": "127.0.0.1",
+  "watchoutPort": 3040,
+  "debug": true
+}
