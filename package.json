@@ -1,0 +1,22 @@
+{
+  "name": "osc-watchout",
+  "version": "0.0.1",
+  "description": "A show control platform/router that converts OSC messages to telnet console commands for Dataton Watchout",
+  "main": "src/index.js",
+  "repository": "https://github.com/danielbchapman/osc-watchout",
+  "author": "Daniel B. Chapman <chapman@danielbchapman.com>",
+  "license": "GPL",
+  "private": true,
+  "dependencies": {
+    "osc": "^2.3.1"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.12.8",
+    "@babel/core": "^7.12.9",
+    "@babel/node": "^7.12.6",
+    "@babel/preset-env": "^7.12.7"
+  },
+  "scripts": {
+    "start": "babel-node src/index.js"
+  }
+}
