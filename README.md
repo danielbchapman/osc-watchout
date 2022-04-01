@@ -1,3 +1,6 @@
+# Other projects
+Check out OSC-for-WATCHOUT by Jose Shea that used this project as a starting point: https://github.com/jshea2/OSC-for-WATCHOUT It has a further set of commands for more complete control as well as a user interface.
+
 # osc-watchout
 A show control platform/router that converts OSC messages to telnet console commands for Dataton Watchout
 
