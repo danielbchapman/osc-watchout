@@ -7,6 +7,42 @@ class WatchoutSocket {
     this.debug = debug || false
   }
 
+  safeControlCue(cue) {
+    console.log(`CUE-${cue}`)
+    const socket = new net.Socket()
+    socket.setTimeout(1000) //short life socket
+    let wait = 'waiting'
+    
+    socket.on('data', (data) => {
+      if(data.indexOf('Error') > -1) {
+        console.log('--------------------------------------')
+        console.log(`[WO::data] => ${data}`)
+        console.log('--------------------------------------')        
+        socket.destroy()
+      } else {
+        socket.write('run\r\n')
+        socket.destroy()
+      }
+      
+    })
+
+    const opts = {
+      host: 'localhost',
+      port: 3040,
+      readable: true,
+      writeable: true,
+    }
+
+    socket.connect(opts, ()=>{
+      if(this.debug) {
+        console.log('[Socket] Watchout socket connected')
+      }
+      console.log('----------------------------------')
+      socket.write(`gotoControlCue ${cue}\r\n`)
+      socket.write('ping\r\n')
+      console.log('----------------------------------')
+    })
+  }
   /**
    * Sends a command/set of commands to watchout, then disconnects. Because
    * of the nature of the online/offline workflow with Watchout

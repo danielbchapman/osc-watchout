@@ -10,7 +10,12 @@ let connect = (config) => {
   const watchoutIp = config.watchoutIpAddress || 'localhost'
   const watchoutPort = config.watchoutPort || 3040 //production
 
-  let eos = new EosTcpHandler(eosIP, eosPort)
+  let cleanLog = (data) => {
+    if(data.indexOf('watchout') > -1) {
+      console.log(data)
+    }
+  }
+  let eos = new EosTcpHandler(eosIP, eosPort, null, null, cleanLog)
 
   if(!debug) {
     const empty = ()=>{}
@@ -56,10 +61,11 @@ let connect = (config) => {
               console.log(`[WATCHOUT] run`)
             }
             let wo = new WatchoutSocket(watchoutIp, watchoutPort, debug)
-            wo.send([
-              `gotoControlCue ${cue}`, 
-              'run'
-            ])
+            wo.safeControlCue(cue)
+            // wo.send([
+            //   `gotoControlCue ${cue}`, 
+            //   'run'
+            // ])
           }
           
           break
