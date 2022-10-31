@@ -1,14 +1,77 @@
 import EosTcpHandler, { VERSIONS } from './LightAsssistantEosModule'
 import WatchoutSocket from './WatchoutSocket'
 
+let _lastPing = null
+let _intervalPingEos = null
+let _intervalReconnect = null
+/**
+ * This is the interval for the heartbeat, we check every 5 seconds, but wait up to 10.
+ * I'm not sure this is aggressive enough. And, honestly, I think any "/eos/out/" should
+ * probably reset the interval
+ */
+let _max = 10000 
+let _interval = 5000
+let _eos = null
+let _config = null
+
+const killKeepAlive = ()=> {
+  clearInterval(_intervalPingEos)
+  clearInterval(_intervalReconnect)
+}
+
+const startKeepAlive = () => {
+  const forceReconnect = () =>{ 
+    const _now = Date.now()
+    if(_now - _lastPing > _max) {
+      console.error('[CONNECTION TO EOS LOST]------------RETRY EVERY 5 SECONDS')
+      try {
+        _eos.disconnect()
+      } catch(e) {
+        console.error('EXCEPTION')
+        console.error(e)
+      }
+      setTimeout(()=>{tryConnect()}, 500)
+    } else {
+      console.log(`HEARTBEAT: last ping at ${_lastPing}`)
+    }
+  }
+
+  const pingEos = () => {
+    try {
+      console.log('HEARTBEAT:/eos/ping')
+      _eos.send('/eos/ping')
+    } catch (e) {
+      console.error('[CRITICAL] FAILED TO PING')
+      console.error(e)
+    }
+    
+  }
+  _intervalReconnect = setInterval(forceReconnect, _interval)
+  _intervalPingEos = setInterval(pingEos, _interval)
+}
+
+const tryConnect = () => {
+  killKeepAlive()
+  startKeepAlive()
+  _eos.connect().then(ok => {
+    if(_config.debug) {
+      console.log('Connected to EOS')
+      console.log(ok)
+    }
+  }).catch(error => {
+    console.log('Error connecting to EOS')
+    console.log(error)
+  })
+}
+
 let connect = (config) => {
-  
+  _config = {...config}
   //Configuration
   const eosIP = config.eosIpAddress || 'localhost'
   const eosPort = config.eosOscPort || 3032
   const debug = config.debug || false
   const watchoutIp = config.watchoutIpAddress || 'localhost'
-  const watchoutPort = config.watchoutPort || 3040 //production
+  const watchoutPort = config.watchoutPort || 3040 //production, 3039 for Display
 
   let cleanLog = (data) => {
     if(data.indexOf('watchout') > -1) {
@@ -16,7 +79,7 @@ let connect = (config) => {
     }
   }
   let eos = new EosTcpHandler(eosIP, eosPort, null, null, cleanLog)
-
+  _eos = eos
   if(!debug) {
     const empty = ()=>{}
     eos.onVerbose = empty
@@ -25,6 +88,14 @@ let connect = (config) => {
   }
 
   eos.version = VERSIONS.VERSION_1_0
+
+  //Eos Keep Alive
+  eos.addListener( (msg) => {
+    let { address, args} = msg
+    if(address.includes('/eos/out/ping')) {
+      _lastPing = Date.now()
+    }
+  })
   // eos.onVerbose = (log) => {
   //   console.log(log)
   // }
@@ -61,11 +132,7 @@ let connect = (config) => {
               console.log(`[WATCHOUT] run`)
             }
             let wo = new WatchoutSocket(watchoutIp, watchoutPort, debug)
-            wo.safeControlCue(cue)
-            // wo.send([
-            //   `gotoControlCue ${cue}`, 
-            //   'run'
-            // ])
+            wo.gotoControlCue(cue)
           }
           
           break
@@ -75,9 +142,7 @@ let connect = (config) => {
             }
 
             let wo = new WatchoutSocket(watchoutIp, watchoutPort, debug)
-            wo.send([
-              'run'
-            ])
+            wo.run()
           }
 
           case 'goto': { //goto the cue and standby to run
@@ -86,10 +151,7 @@ let connect = (config) => {
               console.log(`[WATCHOUT] halt`)
             }
             let wo = new WatchoutSocket(watchoutIp, watchoutPort, debug)
-            wo.send([
-              `gotoControlCue ${cue}`, 
-              'halt'
-            ])
+            wo.moveToControlCue(cue)
           }
           break
 
@@ -98,9 +160,7 @@ let connect = (config) => {
               console.log(`[WATCHOUT] halt`)
             }
             let wo = new WatchoutSocket(watchoutIp, watchoutPort, debug)
-            wo.send([
-              'halt'
-            ])
+            wo.halt()
           }
           break
 
@@ -119,15 +179,7 @@ let connect = (config) => {
     }
   })
 
-  eos.connect().then(ok => {
-    if(debug) {
-      console.log('Connected to EOS')
-      console.log(ok)
-    }
-  }).catch(error => {
-    console.log('Error connecting to EOS')
-    console.log(error)
-  })  
+  tryConnect(eos)
 }
 
 
